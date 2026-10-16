@@ -24,9 +24,9 @@ jobs:
           cd ios && xcodegen generate
           xcodebuild test -project MagnetPlayer.xcodeproj -scheme MagnetPlayer -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO | tee ../test.log
       - name: Build
-        run: set -o pipefail; scripts/build-ios.sh 2>&1 | tee build.log
+        run: set -o pipefail; bash scripts/build-ios.sh 2>&1 | tee build.log
       - name: Package IPA
-        run: scripts/package-ipa.sh
+        run: bash scripts/package-ipa.sh
       - name: Summary
         run: |
           { echo "## BUILD SUCCESSFUL"; echo "IPA: MagnetPlayer-unsigned.ipa"; } >> "$GITHUB_STEP_SUMMARY"
@@ -37,4 +37,3 @@ jobs:
         with: { name: build-logs, path: "*.log" }
       - uses: actions/upload-artifact@v4
         with: { name: app-build-output, path: "build/Build/Products/*-iphoneos/MagnetPlayer.app" }
-
