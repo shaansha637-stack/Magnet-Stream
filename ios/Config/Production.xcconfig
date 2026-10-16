@@ -1,0 +1,4 @@
+// Overridden in CI via the backend_url input / API_BASE_URL secret.
+API_BASE_URL = https:/$()/api.example.com
+APP_API_KEY =
+
