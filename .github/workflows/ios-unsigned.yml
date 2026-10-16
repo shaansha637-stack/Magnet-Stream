@@ -1,0 +1,52 @@
+name: iOS Unsigned IPA
+on:
+  workflow_dispatch:
+    inputs:
+      configuration: { description: 'Build configuration', default: 'Release', type: choice, options: [Release, Debug] }
+      backend_url: { description: 'Backend URL (blank = API_BASE_URL secret)', required: false, default: '' }
+      app_version: { description: 'Marketing version', default: '1.0.0' }
+      build_number: { description: 'Build number', default: '1' }
+jobs:
+  build:
+    runs-on: macos-15
+    env:
+      CONFIGURATION: ${{ inputs.configuration }}
+      APP_VERSION: ${{ inputs.app_version }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      API_BASE_URL: ${{ inputs.backend_url != '' && inputs.backend_url || secrets.API_BASE_URL }}
+      APP_API_KEY: ${{ secrets.APP_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Test
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd ios && xcodegen generate
+          xcodebuild test -project MagnetPlayer.xcodeproj -scheme MagnetPlayer -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO | tee ../test.log
+      - name: Build
+        run: |
+          set +e
+          bash scripts/build-ios.sh > build.log 2>&1
+          code=$?
+          if [ $code -ne 0 ]; then
+            grep -E "error:|fatal error|Command .* failed" build.log | sort -u | head -15 > errors.txt
+            { echo "## BUILD FAILED"; echo '```'; cat errors.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            while IFS= read -r line; do echo "::error::${line}"; done < <(head -8 errors.txt)
+            echo "=== LAST 15 LINES ==="; tail -15 build.log | cut -c1-200
+            echo "=== ERRORS (see here) ==="; cat errors.txt | cut -c1-300
+          fi
+          exit $code
+      - name: Package IPA
+        run: bash scripts/package-ipa.sh
+      - name: Summary
+        run: |
+          { echo "## BUILD SUCCESSFUL"; echo "IPA: MagnetPlayer-unsigned.ipa"; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with: { name: MagnetPlayer-unsigned.ipa, path: dist/MagnetPlayer-unsigned.ipa }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: build-logs, path: "*.log" }
+      - uses: actions/upload-artifact@v4
+        with: { name: app-build-output, path: "build/Build/Products/*-iphoneos/MagnetPlayer.app" }
