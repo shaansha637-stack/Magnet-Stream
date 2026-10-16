@@ -1,0 +1,10 @@
+services:
+  api:
+    build: ./backend
+    env_file: ./backend/.env
+    ports: ["3000:3000"]
+    volumes: ["jobs-data:/app/data"]
+    restart: unless-stopped
+volumes:
+  jobs-data:
+
